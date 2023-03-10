@@ -1,0 +1,94 @@
+//IMPORTS
+import { json, Router } from "express";
+import { manager } from "../app.js";
+import uploader from "../file-upload.js";
+
+//VARIABLES
+const productsRouter = Router();
+
+//MIDDLEWARES
+productsRouter.use(json());
+
+//ENDPOINTS
+
+productsRouter.get("/", async (req, res) => {
+  try {
+    const products = await manager.getProduct();
+    const { limit } = req.query;
+    if (!limit) {
+      res.status(200).send(products);
+      return;
+    }
+    const productLimit = await products.slice(0, limit);
+    res.status(200).send(productLimit);
+  } catch (error) {
+    res.status(404).send(`${error}`);
+  }
+});
+
+productsRouter.get("/:pid", async (req, res) => {
+  try {
+    const pid = Number(req.params.pid);
+    const productId = await manager.getProductById(pid);
+
+    res.status(200).send(productId);
+  } catch (error) {
+    res.status(404).send(`${error}`);
+  }
+});
+
+productsRouter.post("/", uploader.single(file), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send("file required");
+    }
+    const {
+      title,
+      description,
+      price,
+      thumbail = req.file.path,
+      code,
+      stock,
+      status = true,
+      category,
+    } = req.body;
+    const newProduct = await manager.addProduct(
+      title,
+      description,
+      parseInt(price),
+      thumbail,
+      code,
+      parseInt(stock),
+      status,
+      category
+    );
+
+    res.status(200).send(newProduct);
+  } catch (error) {
+    res.status(404).send({ error });
+  }
+});
+
+productsRouter.put("/:pid", async (req, res) => {
+  try {
+    const pid = Number(req.params.pid);
+    const data = req.body;
+    await manager.updateProduct(pid, ...data);
+
+    res.status(200).send(manager.getProductById(pid));
+  } catch (error) {
+    res.status(404).send({ error });
+  }
+});
+
+productsRouter.delete("/:pid", async (req, res) => {
+  try {
+    const pid = Number(req.params.pid);
+    await manager.deleteProduct(pid);
+    res.status(200).send("Product deleted");
+  } catch (error) {
+    res.status(404).send({ error });
+  }
+});
+
+export default productsRouter;
